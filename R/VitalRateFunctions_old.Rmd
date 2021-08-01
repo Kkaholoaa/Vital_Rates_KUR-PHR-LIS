@@ -1,0 +1,743 @@
+---
+title: "VitalRateFunctions"
+author: "Caroline Rodriguez"
+date: "1/25/2021"
+output: html_document
+---
+
+#Libraries
+```{r}
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(tidyr)
+```
+
+#Set up
+```{r}
+setwd("/Users/c-rod/Documents/R_data/VitalRates/")
+#load in .rdata file
+load("/Users/c-rod/Documents/GitHub/Patch-To-Transition/Patch_And_Colony_Data_20210402.rdata")
+
+View(ColonyLevel)
+#View(PatchLevel)
+
+
+```
+
+#Subset by Site and Genus
+Going to use ColonyLevel data to avoid all the fission/fusion confusion
+```{r}
+MAISIOK01 <- subset(ColonyLevel, Site=="MAI_SIO_K01")
+#View(MAISIOK01)
+KUROCC010 <- subset(ColonyLevel, Site=="KUR_OCC_010")
+#View(KUROCC010)
+PHROCC016 <- subset(ColonyLevel, Site=="PHR_OCC_016")
+#View(PHROCC016)
+MAISIOK02 <- subset(ColonyLevel, Site=="MAI_SIO_K02")
+View(MAISIOK02)
+HAWOCC002 <- subset(ColonyLevel, Site=="HAW_OCC_002")
+HAWOCC003 <- subset(ColonyLevel, Site=="HAW_OCC_003")
+HAWOCC010 <- subset(ColonyLevel, Site=="HAW_OCC_010")
+HAWSIOK08 <- subset(ColonyLevel, Site=="HAW_SIO_K08")
+HAWSIOK10 <- subset(ColonyLevel, Site=="HAW_SIO_K10")
+MAIOCC002 <- subset(ColonyLevel, Site=="MAI_OCC_002")
+OAH022 <- subset(ColonyLevel, Site=="OAH_XXX_022")
+OAHOCC010 <- subset(ColonyLevel, Site=="OAH_OCC_010")
+
+
+#separate by Genus
+Poc <- subset(ColonyLevel, Genus_Code == "POCS")
+Porites <- subset(ColonyLevel, Genus_Code == "POSP")
+Montip <- subset(ColonyLevel, Genus_Code == "MOSP")
+
+```
+
+#Combined Growth Function
+```{r}
+#should we restrict data to colonies > 20cm2?
+
+#plot starting size and ending size for growth. Get a best fit line for that data
+allgrowth <- subset(ColonyLevel, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#View(allgrowth)
+
+#plo <- ggplot(growth, aes(x=ln_SS, y=TransitionRate_L, shape=TransitionTypeSimple)) + 
+  #geom_point(size=1) +
+    #ylim(1,5)
+#plo
+#his <- hist(growth$StartingSize, breaks = 1000, xlim = c(0,50) )
+
+
+
+#For growth function, will fit using starting vs ending size, log transformed because to exaggerate small differences (b/c I have so many little pieces and lots of instances of little growth)
+growth_plot = ggplot(data = allgrowth, aes(x=ln_SS, y=ln_ES,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  ggtitle("Growth: All Genera and All Sites") +
+  #scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+ #log transform x axis
+  #scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+
+  scale_shape_manual(values=0:4)+
+  theme_bw()+ #facet_grid separates by Genus Code (makes 3 verticle plots) and Site (makes horizontal plots)
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+growth_plot
+
+
+fit_allgrowth <- lm(ln_ES ~ ln_SS ,data = allgrowth)
+fit_allgrowth
+summary(fit_allgrowth)
+#linear model for just growth function y = 0.8846x + 0.3253
+#linear model w/ growth & shrink y= 0.8846x + 0.3253
+plot(ln_ES ~ ln_SS ,data = allgrowth, xlim=c(-3,10), ylim=c(-3,10), main = "Growth/Shrink: All Genera and All Sites", xlab = "Log Starting Size", ylab = "Log Ending Size")
+abline(fit_allgrowth)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#smaller sizes grow faster and the larger sizes are right at the 1:1
+
+```
+
+#Growth function: separate by Genus
+```{r}
+#plot based on Genus
+growth_plot_genus = ggplot(data = allgrowth, aes(x=ln_SS, y=ln_ES,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  #scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+ #log transform x axis
+  #scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+
+  scale_shape_manual(values=0:4)+
+  facet_grid(c("Genus_Code"))+theme_bw()+ #facet_grid separates by Genus Code (makes 3 verticle plots) and Site (makes horizontal plots)
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+growth_plot_genus
+
+
+#Pocillopora
+growth_POCS <- subset(Poc, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#View(growth_POCS) #202
+
+#function
+fit_POCS <- lm(ln_ES ~ ln_SS ,data = growth_POCS)
+fit_POCS
+summary(fit_POCS)
+#linear model for growth function y = 0.6136 x + 2.2894
+plot(ln_ES ~ ln_SS ,data = growth_POCS ,xlim=c(-3,10), ylim=c(-3,10), main="All Pocillopora growth at all sites" )  
+abline(fit_POCS)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#everyone's growing and smaller sizes grow supa faster and the larger sizes are right at the 1:1
+
+
+####################
+#Porites
+growth_POSP <- subset(Porites, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#View(growth_POSP)
+
+#function
+fit_POSP <- lm(ln_ES ~ ln_SS ,data = growth_POSP)
+fit_POSP
+#linear model for growth function y = 0.8527x + 0.3080
+summary(fit_POSP)
+plot(ln_ES ~ ln_SS ,data = growth_POSP ,xlim=c(-3,10), ylim=c(-3,10), main="All Porites growth at all sites")
+abline(fit_POSP)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#smaller sizes grow faster and the larger sizes are right at the 1:1
+
+
+####################
+#Montipora
+growth_MOSP <- subset(Montip, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#View(growth_MOSP)
+
+#function
+fit_MOSP <- lm(ln_ES ~ ln_SS ,data = growth_MOSP)
+fit_MOSP
+#linear model for growth function
+#y = 0.8960x + 0.2839
+summary(fit_MOSP)
+plot(ln_ES ~ ln_SS ,data = growth_MOSP ,xlim=c(-3,10), ylim=c(-3,10), main="All Montipora growth at all sites")
+abline(fit_MOSP)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+
+#another way to plot (all montipora)
+ggplot(growth_MOSP, aes(x=ln_SS, y=ln_ES))+ geom_point() + geom_smooth(method = lm)+
+  ggtitle("All Montipora growth at all sites")+
+  annotate("rect", xmin =-.5, xmax = .5, ymin = 4.5, ymax = 5.5, fill="white", colour="red") +
+  annotate("text", x=0, y=5, label = "R^2=0.93") 
+#smaller sizes grow faster and the larger sizes are right at the 1:1
+```
+
+#Growth function: separate by site, all genera
+```{r}
+#MAISIOK01
+growth_MAISIOK01 <- subset(MAISIOK01, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_MAISIOK01 <- lm(ln_ES ~ ln_SS ,data = growth_MAISIOK01)
+fit_MAISIOK01
+summary(fit_MAISIOK01)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_MAISIOK01 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at MAISIOK01")
+abline(fit_MAISIOK01)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_MAISIOK01)
+#interpret results
+anova(fit_MAISIOK01)
+
+###################
+#KUROCC010
+growth_KUROCC010 <- subset(KUROCC010, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_KUROCC010 <- lm(ln_ES ~ ln_SS ,data = growth_KUROCC010)
+fit_KUROCC010
+summary(fit_KUROCC010)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_KUROCC010 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at KUROCC010") 
+abline(fit_KUROCC010)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_KUROCC010)
+#interpret results
+anova(fit_KUROCC010)
+
+
+###################
+#PHROCC016
+growth_PHROCC016 <- subset(PHROCC016, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_PHROCC016 <- lm(ln_ES ~ ln_SS ,data = growth_PHROCC016)
+fit_PHROCC016
+summary(fit_PHROCC016)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_PHROCC016 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at PHROCC016") 
+abline(fit_PHROCC016)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_PHROCC016)
+#interpret results
+anova(fit_PHROCC016)
+
+###################
+#HAWOCC002 
+growth_HAWOCC002 <- subset(HAWOCC002, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_HAWOCC002 <- lm(ln_ES ~ ln_SS ,data = growth_HAWOCC002)
+fit_HAWOCC002
+summary(fit_HAWOCC002)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_HAWOCC002 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at HAWOCC002") 
+abline(fit_HAWOCC002)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_HAWOCC002)
+#interpret results
+anova(fit_HAWOCC002)
+
+###################
+#HAWOCC003
+growth_HAWOCC003 <- subset(HAWOCC003, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_HAWOCC003 <- lm(ln_ES ~ ln_SS ,data = growth_HAWOCC003)
+fit_HAWOCC003
+summary(fit_HAWOCC003)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_HAWOCC003 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at HAWOCC003") 
+abline(fit_HAWOCC003)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_HAWOCC003)
+#interpret results
+anova(fit_HAWOCC003)
+
+###################
+#HAWOCC010
+growth_HAWOCC010 <- subset(HAWOCC010, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_HAWOCC010 <- lm(ln_ES ~ ln_SS ,data = growth_HAWOCC010)
+fit_HAWOCC010
+summary(fit_HAWOCC010)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_HAWOCC010 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at HAWOCC010") 
+abline(fit_HAWOCC010)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_HAWOCC010)
+#interpret results
+anova(fit_HAWOCC010)
+
+###################
+#HAWSIOK08
+growth_HAWSIOK08 <- subset(HAWSIOK08, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_HAWSIOK08 <- lm(ln_ES ~ ln_SS ,data = growth_HAWSIOK08)
+fit_HAWSIOK08
+summary(fit_HAWSIOK08)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_HAWSIOK08 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at HAWSIOK08") 
+abline(fit_HAWSIOK08)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_HAWSIOK08)
+#interpret results
+anova(fit_HAWSIOK08)
+
+###################
+#HAWSIOK10
+growth_HAWSIOK10 <- subset(HAWSIOK10, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_HAWSIOK10 <- lm(ln_ES ~ ln_SS ,data = growth_HAWSIOK10)
+fit_HAWSIOK10
+summary(fit_HAWSIOK10)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_HAWSIOK10 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at HAWSIOK10") 
+abline(fit_HAWSIOK10)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_HAWSIOK10)
+#interpret results
+anova(fit_HAWSIOK10)
+
+###################
+#MAIOCC002
+growth_MAIOCC002 <- subset(MAIOCC002, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_MAIOCC002 <- lm(ln_ES ~ ln_SS ,data = growth_MAIOCC002)
+fit_MAIOCC002
+summary(fit_MAIOCC002)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_MAIOCC002 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at MAIOCC002") 
+abline(fit_MAIOCC002)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_MAIOCC002)
+#interpret results
+anova(fit_MAIOCC002)
+
+###################
+#OAH022
+growth_OAH022 <- subset(OAH022, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_OAH022 <- lm(ln_ES ~ ln_SS ,data = growth_OAH022)
+fit_OAH022
+summary(fit_OAH022)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_OAH022 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at OAH022") 
+abline(fit_OAH022)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_OAH022)
+#interpret results
+anova(fit_OAH022)
+
+###################
+#OAHOCC010
+growth_OAHOCC010 <- subset(OAHOCC010, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#function
+fit_OAHOCC010 <- lm(ln_ES ~ ln_SS ,data = growth_OAHOCC010)
+fit_OAHOCC010
+summary(fit_OAHOCC010)
+#plot
+plot(ln_ES ~ ln_SS ,data = growth_OAHOCC010 ,xlim=c(-3,10), ylim=c(-3,10), main="All genera growth at OAHOCC010") 
+abline(fit_OAHOCC010)
+abline(a=0, b=1,col="red")
+legend("topleft", bty = "n", lty = c(1,1), col = c("black","red"),
+       legend=c("model fit", "1:1"), cex = 0.8)
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_OAHOCC010)
+#interpret results
+anova(fit_OAHOCC010)
+
+```
+
+#Growth by Site and Genus (need to finish)
+one site, separate by genera
+```{r}
+#MAISIOK01
+gro_MAISIOK01_POSP <- subset(growth_MAISIOK01, Genus_Code == "POSP")
+#function
+fit_MAISIOK01_POSP <- lm(ln_ES ~ ln_SS ,data = gro_MAISIOK01_POSP)
+fit_MAISIOK01_POSP
+#linear model for growth function:  y = 0.9182x + 0.5546
+#plot
+summary(fit_MAISIOK01_POSP)
+plot(ln_ES ~ ln_SS ,data = gro_MAISIOK01_POSP ,xlim=c(-3,10), ylim=c(-3,10), main="Porites growth at MAISIOK01")
+abline(fit_MAISIOK01_POSP)
+abline(a=0, b=1,col="red")
+#plot residuals
+par(mfrow=c(2,2))
+plot(fit_MAISIOK01_POSP)
+#interpret results
+anova(fit_MAISIOK01_POSP)
+ 
+
+```
+
+
+Compare r2 values
+Do a likliehood or AIC comparison to compare model fit and determine the best one?
+#AIC comparison
+https://www.scribbr.com/statistics/akaike-information-criterion/
+```{r}
+#Going to compare genus model vs. site model vs. site+genus
+fit_POCS
+fit_MAISIOK01
+fit_MAISIOK01_POSP
+
+```
+
+
+
+#Survival (Mortality) function
+Use binomial to fit
+```{r Survival, cache=FALSE}
+## Starting with suvival/mortality of all (genera + site + year)
+
+# s.mod <- glm(surv ~ area + area_2, family="binomial", data)
+
+# genera <- # Particular genus name we care about
+# genz <- ColonyLevel[ColonyLevel$Genus_Code == genera]
+# d_site <- # site name
+# sitez <- ColonyLevel
+# a_data_mort <- subset(ColonyLevel, TransitionTypeSimple == "MORT") 
+# ps <- subset(a_data_mort, Genus_Code == "POSP")
+
+#all survival (all sites all genera)
+surv <- 1 - ColonyLevel$Mortality
+ColonyLevel$ln_SS <- as.numeric(ColonyLevel$ln_SS)
+ColonyLevel$ln_SS[ColonyLevel$ln_SS == -Inf] <-NA
+#fit
+gn <- glm(surv ~ ln_SS, family = "binomial", data = ColonyLevel)
+gn
+
+#plot(ColonyLevel$ln_SS, surv, xlab = 'Area (ln of area)', ylab = 'Survival')
+# This isn't really showing anything...
+
+#better plot
+plot(jitter(surv, 0.1) ~ ln_SS, ColonyLevel)
+ss <- seq(-3, 9, 0.1)
+lines(ss, predict(gn, list(ln_SS = ss), type="response"), pch=8)
+# this will give the original response variable -- don't need to do the reverse transform, works for any type of glm.
+
+
+
+#survival by genus
+####################
+#Pocillopora
+surv_POCS <- 1 - Poc$Mortality
+Poc$ln_SS <- as.numeric(Poc$ln_SS)
+Poc$ln_SS[Poc$ln_SS == -Inf] <-NA
+#fit
+gn_POCS <- glm(surv_POCS ~ ln_SS, family = "binomial", data = Poc)
+gn_POCS
+#plot
+plot(jitter(surv_POCS, 0.1) ~ ln_SS, Poc)
+ss <- seq(-3, 9, 0.1)
+lines(ss, predict(gn_POCS, list(ln_SS = ss), type="response"), pch=8)
+
+
+####################
+#Porites
+surv_POSP <- 1 - Porites$Mortality
+Porites$ln_SS <- as.numeric(Porites$ln_SS)
+Porites$ln_SS[Porites$ln_SS == -Inf] <-NA
+#fit
+gn_POSP <- glm(surv_POSP ~ ln_SS, family = "binomial", data = Porites)
+gn_POSP
+
+#plot
+plot(jitter(surv_POSP, 0.1) ~ ln_SS, Porites)
+ss <- seq(-3, 9, 0.1)
+lines(ss, predict(gn_POSP, list(ln_SS = ss), type="response"), pch=8)
+
+
+####################
+#Montipora
+surv_MOSP <- 1 - Montip$Mortality
+Montip$ln_SS <- as.numeric(Montip$ln_SS)
+Montip$ln_SS[Montip$ln_SS == -Inf] <-NA
+#fit
+gn_MOSP <- glm(surv_MOSP ~ ln_SS, family = "binomial", data = Montip)
+gn_MOSP
+inv.logit <- function(x){
+  exp(x)/(1+exp(x))
+}
+#plot
+plot(jitter(surv_MOSP, 0.1) ~ ln_SS, Montip)
+ss <- seq(-3, 9, 0.1)
+lines(ss, predict(gn_MOSP, list(ln_SS = ss), type="response"), pch=8)
+
+```
+
+
+#Reproduction
+Size specific recruit rate= (# of recruits/area of parent corals)
+First calculate the total patch area for each interval year
+Then calculate the # of recruits per interval year
+Divide two vectors (# recruits per interval year / total parent area)
+```{r}
+recruitment <- subset(ColonyLevel, TransitionTypeSimple == "RECR")
+#View(recruitment)
+recrhist <- hist(recruitment$ln_ES, breaks = 100)
+#area of ALL corals
+sumcoralarea <- sum(ColonyLevel$StartingSize)
+
+#total coral area per interval year:
+#first calc all unique time intervals
+yearint <- unique(ColonyLevel$Interval_Years)
+yearint
+#for every interval year, get the sum of the previous's years coral area (StartingSize)
+coralarea <- rep(0,length(yearint)) #initialize vector
+for (w in 1:length(yearint)) {
+  coralarea[w] <- sum(ColonyLevel$StartingSize[which(ColonyLevel$Interval_Years== yearint[w])])
+}
+coralarea #sum of patch areas for every time interval
+#log(coralarea) #log transformed total patch area/time interval
+
+
+#have area value for each time interval now calculate # recruits per time interval
+#sumrecruit<- sum(recruitment$Recruit) #total number of recruits
+
+#number of recruits per transition (number recruits/interval year)
+yearish <- rep(0,length(yearint)) #initalize vector
+#for every interval year, get the sum of recruits for that interval year
+for (v in 1:length(yearint)) {
+  yearish[v] <- sum(recruitment$Recruit[which(recruitment$Interval_Years== yearint[v])])
+}
+yearish <- round(yearish/yearint) #normalizes by time interval (# of recruits/time interval)
+yearish
+
+#size specific recruitment rate (# of recruits/area of parent corals)
+areaspecrec <- yearish/coralarea
+areaspecrec #size specific recruitment rate
+mean(areaspecrec)
+
+
+
+#separate by genus
+
+#############
+#Pocillopora
+recr_POCS <- subset(Poc, TransitionTypeSimple == "RECR")
+#POCS_recr_hist <- hist(recr_POCS$ln_ES, breaks = 100)
+
+#total coral area per interval year
+#first calc all unique time intervals
+yearPoc <- unique(Poc$Interval_Years)
+yearPoc
+#for every interval year, get the sum of the previous's years coral area (StartingSize)
+area_POCS <- rep(0,length(yearPoc)) #initialize vector
+for (w in 1:length(yearPoc)) {
+  area_POCS[w] <- sum(Poc$StartingSize[which(Poc$Interval_Years== yearPoc[w])])
+}
+area_POCS #sum of patch areas for every time interval
+#log(area_POCS) #log transformed total patch area/time interval
+
+#number of recruits per transition (number recruits/interval year)
+recr_POCS <- rep(0,length(yearPoc)) #initalize vector
+#for every interval year, get the sum of recruits for that interval year
+for (v in 1:length(yearPoc)) {
+  recr_POCS[v] <- sum(Poc$Recruit[which(Poc$Interval_Years== yearPoc[v])])
+}
+recr_POCS <- round(recr_POCS/yearPoc) #normalizes by time interval (# of recruits/time interval)
+recr_POCS
+
+#size specific recruitment rate (# of recruits/area of parent corals)
+sizespecrec_POCS <- recr_POCS/area_POCS
+sizespecrec_POCS #log transformed size specific recruitment rate
+avg_rPOCS <- mean(na.omit(sizespecrec_POCS))
+avg_rPOCS
+
+
+#############
+#porites
+recr_POSP <- subset(Porites, TransitionTypeSimple == "RECR")
+#POCS_recr_hist <- hist(recr_POCS$ln_ES, breaks = 100)
+
+#total coral area per interval year
+#first calc all unique time intervals
+yearPosp <- unique(Porites$Interval_Years)
+yearPosp
+#for every interval year, get the sum of the previous's years coral area (StartingSize)
+area_POSP <- rep(0,length(yearPosp)) #initialize vector
+for (w in 1:length(yearPosp)) {
+  area_POSP[w] <- sum(Porites$StartingSize[which(Porites$Interval_Years== yearPosp[w])])
+}
+area_POSP #sum of patch areas for every time interval
+#log(area_POSP) #log transformed total patch area/time interval
+
+#number of recruits per transition (number recruits/interval year)
+recr_POSP <- rep(0,length(yearPosp)) #initalize vector
+#for every interval year, get the sum of recruits for that interval year
+for (v in 1:length(yearPosp)) {
+  recr_POSP[v] <- sum(Porites$Recruit[which(Porites$Interval_Years== yearPosp[v])])
+}
+recr_POSP <- round(recr_POSP/yearPosp) #normalizes by time interval (# of recruits/time interval)
+recr_POSP
+
+#size specific recruitment rate (# of recruits/area of parent corals)
+sizespecrec_POSP <- recr_POSP/area_POSP
+sizespecrec_POSP #log transformed size specific recruitment rate
+avg_rPOSP <- mean(na.omit(sizespecrec_POSP))
+avg_rPOSP
+
+
+
+#############
+#montipora
+recr_MOSP <- subset(Montip, TransitionTypeSimple == "RECR")
+#POCS_recr_hist <- hist(recr_POCS$ln_ES, breaks = 100)
+
+#total coral area per interval year
+#first calc all unique time intervals
+yearMosp <- unique(Montip$Interval_Years)
+yearMosp
+#for every interval year, get the sum of the previous's years coral area (StartingSize)
+area_MOSP <- rep(0,length(yearMosp)) #initialize vector
+for (w in 1:length(yearMosp)) {
+  area_MOSP[w] <- sum(Montip$StartingSize[which(Montip$Interval_Years== yearMosp[w])])
+}
+area_MOSP #sum of patch areas for every time interval
+#log(area_MOSP) #log transformed total patch area/time interval
+
+#number of recruits per transition (number recruits/interval year)
+recr_MOSP <- rep(0,length(yearMosp)) #initalize vector
+#for every interval year, get the sum of recruits for that interval year
+for (v in 1:length(yearMosp)) {
+  recr_MOSP[v] <- sum(Montip$Recruit[which(Montip$Interval_Years== yearMosp[v])])
+}
+recr_MOSP <- round(recr_MOSP/yearMosp) #normalizes by time interval (# of recruits/time interval)
+recr_MOSP
+
+#size specific recruitment rate (# of recruits/area of parent corals)
+sizespecrec_MOSP <- recr_MOSP/area_MOSP
+sizespecrec_MOSP #log transformed size specific recruitment rate
+avg_rMOSP <- mean(na.omit(sizespecrec_MOSP))
+avg_rMOSP
+
+
+################
+#probably not going to use
+#Recruitment probability
+#logistic regression (maybe Poisson GLM?)
+
+#all recruitment (all sites all genera)
+repro <- 1 - ColonyLevel$Recruit
+ColonyLevel$ln_ES <- as.numeric(ColonyLevel$ln_ES)
+ColonyLevel$ln_ES[ColonyLevel$ln_ES == -Inf] <-NA
+#fit
+allreprofit <- glm(repro ~ ln_ES, family = "binomial", data = ColonyLevel)
+allreprofit
+summary(allreprofit)
+
+
+#Pocillopora recruitment 
+repro <- 1 - Poc$Recruit
+Poc$ln_ES <- as.numeric(Poc$ln_ES)
+Poc$ln_ES[Poc$ln_ES == -Inf] <-NA
+#fit
+reprofit_POCS <- glm(repro ~ ln_ES, family = "binomial", data = Poc)
+reprofit_POCS
+summary(reprofit_POCS)
+
+
+#Porites recruitment 
+repro <- 1 - Porites$Recruit
+Porites$ln_ES <- as.numeric(Porites$ln_ES)
+Porites$ln_ES[Porites$ln_ES == -Inf] <-NA
+#fit
+reprofit_POSP <- glm(repro ~ ln_ES, family = "binomial", data = Porites)
+reprofit_POSP
+summary(reprofit_POSP)
+
+#Montipora recruitment 
+repro <- 1 - Montip$Recruit
+Montip$ln_ES <- as.numeric(Montip$ln_ES)
+Montip$ln_ES[Montip$ln_ES == -Inf] <-NA
+#fit
+reprofit_MOSP <- glm(repro ~ ln_ES, family = "binomial", data = Montip)
+reprofit_MOSP
+summary(reprofit_MOSP)
+
+```
+
+#Create dataframe
+```{r}
+
+POCSgro <- coef(fit_POCS)
+MOSPgro <- coef(fit_MOSP)
+POSPgro <- coef(fit_POSP)
+POCSsurv <- coef(gn_POCS)
+MOSPsurv <- coef(gn_MOSP)
+POSPsurv <- coef(gn_POSP)
+allreprod <- coef(allreprofit)
+reprofit_POCS <- coef(reprofit_POCS)
+reprofit_POSP <- coef(reprofit_POSP)
+reprofit_MOSP <- coef(reprofit_MOSP)
+
+#allreprofit is slope and intercept from logistic regression for ALL taxa
+#recruitment parameters avg_rPOCS,avg_rPOSP,avg_rMOSP are probs messed up. They are NOT slope/intercept; they are size specific recruitment rate (# of recruits/area of parent corals)
+VR_slpint <- data.frame(POCSgro,MOSPgro,POSPgro,POCSsurv,MOSPsurv,POSPsurv,allreprod,reprofit_POCS,reprofit_POSP,reprofit_MOSP,avg_rPOCS,avg_rPOSP,avg_rMOSP)
+rownames(VR_slpint) <- c('Intercept','Slope')
+VR_slpint
+
+#names(tester)
+
+```
+
+
+
+**Caroline's to-do list:**
+- [X] separate whole dataset by genus
+- [ ] clean up script
+- [X] create dataframe: slope and intercept for each genus for each demographic parameter
+growth:
+- [X] slope and intercept for each genus
+survival:
+- [X] slope and intercept for each genus
+reproduction: 
+- [X] calculate total coral area from previous timepoint
+- [X] Then take # recruits/total area (AKA take yearish/previous area)
+- [X] separate by each genus
+
+
+
+**Devynn's To do list:**
+- [ ] Change parameterization of enviro variance so it depends on pheno variance (so model will only depend on pheno variance)
+- [ ] Start powerpoint
+- [ ] Run through scenarios that we care about (ideas: AGF, supportive breeding, outplanting, outcrossing, algal symbiont manipulation)
+- [ ] Once have Caroline's data, check lambda values for each taxa
+- [ ] If lambda <1, boost recruitment
+
+

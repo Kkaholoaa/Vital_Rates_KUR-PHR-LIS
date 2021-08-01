@@ -1,0 +1,439 @@
+---
+title: "VitalRates_stats"
+author: "Caroline Rodriguez"
+date: "11/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(cache = FALSE)
+```
+
+#Libraries
+```{r}
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(tidyr)
+library(car) #used for ANCOVA
+library(MASS) #used for prop test
+library(broom) #helps tidy up model outputs
+library(lme4) #used for Mixed Effects Logistic Regression
+library(sjPlot) #used to visualize mixed-effects models
+```
+
+#Set up (change path for your computer)
+```{r Load,}
+#load in .rdata file
+load("/Users/kaikukaholoaa/Desktop/VitalRates_Kai/data/Patch_And_Colony_Data_20210730.rdata")
+#View both tables saved in the .rdata
+View(ColonyLevel)
+View(PatchLevel)
+
+```
+
+
+#Subset by Site
+Going to use ColonyLevel data to avoid all the fission/fusion confusion
+```{r}
+
+KUROCC010 <- subset(ColonyLevel, Site=="KUR_OCC_010")
+#View(KUROCC010)
+
+PHROCC016 <- subset(ColonyLevel, Site=="PHR_OCC_016")
+#View(PHROCC016)
+
+LISOCC005 <- subset(ColonyLevel, Site=="LIS_OCC_005")
+View(LISOCC005)
+```
+
+###subset by only plic (Kai)!
+```{r}
+KUROCC010_PLIC <- subset(KUROCC010, Spec_Code=="PLIC")
+View(KUROCC010_PLIC)
+
+PHROCC016_PLIC <- subset(PHROCC016, Spec_Code=="PLIC")
+View(PHROCC016_PLIC)
+
+LISOCC005_PLIC <- subset(LISOCC005, Spec_Code=="PLIC")
+View(LISOCC005_PLIC)
+```
+
+###subset by only plic from 2016-2019 (Kai)!
+```{r}
+KUROCC010_PLIC_16to19 <- subset(KUROCC010_PLIC, Interval=="16-19")
+View(LISOCC005_PLIC_16to19)
+
+PHROCC016_PLIC_16to19 <- subset(PHROCC016_PLIC, Interval=="16-19")
+View(LISOCC005_PLIC_16to19)
+
+LISOCC005_PLIC_16to19 <- subset(LISOCC005_PLIC, Interval=="16-19")
+View(LISOCC005_PLIC_16to19)
+```
+
+
+#Plot by Colony Level (growth, shrink, mort, recruit)
+```{r}
+#change this basepath to your working directory on your computer
+basepath="/Users/kaikukaholoaa/Desktop/VitalRates_Kai/"
+
+#the shape palette is messed up because it can deal w/ a max of 6 discrete values and we have 53 b/c all the fissiongrowthfusion, growthfissionfission, etc. Instead used the TransitionTypeSimple (growth,shrink,mort, recr)
+
+#same plot as above but adds lines
+
+#################################
+#Kure
+T0T1K = ggplot(data = KUROCC010_PLIC, aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,100))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,100))+
+  scale_shape_manual(values=0:4)+
+  facet_grid(c("Spec_Code","Site"))+theme_bw()+ #facet_grid separates by Genus Code (makes 3 verticle plots) and Site (makes horizontal plots)
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1K
+ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_KUR.png"),plot=T0T1K,width=6,height=3)
+
+#################################
+#PHR
+T0T1P = ggplot(data = PHROCC016_PLIC, aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+
+  scale_shape_manual(values=0:4)+
+  facet_grid(c("Genus_Code","Site"))+theme_bw()+ #facet_grid separates by Genus Code (makes 3 verticle plots) and Site (makes horizontal plots)
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1P
+#ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_PHR.png"),plot=T0T1P,width=6,height=3)
+
+##################################
+#LIS
+T0T1LIS = ggplot(data = LISOCC005_PLIC, aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+
+  scale_shape_manual(values=0:4)+
+  facet_grid(c("Spec_Code","Site"))+theme_bw()+ #facet_grid separates by Genus Code (makes 3 verticle plots) and Site (makes horizontal plots)
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1LIS
+#ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_LIS.png"),plot=T0T1LIS,width=6,height=3)
+```
+
+
+#Plot by Colony Level (growth, shrink, mort, recruit) and Transition
+
+#MAISIOK02
+T0T1k02 = ggplot(subset(MAISIOK02, Genus_Code%in%c("MOSP","POSP")), aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point(size=4) + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+
+  scale_shape_manual(values=0:4)+
+  facet_wrap(c("Genus_Code","Interval"),scales="free")+ 
+  theme(axis.text = element_text(size = 20))+ theme(axis.title = element_text(size = 20))+ theme(legend.text = element_text(size = 20))+ theme(legend.title = element_text(size = 26), strip.text = element_text(size = 15))+
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1k02
+ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_ByYear_MAISIOK02.png"),plot=T0T1k02,width=8*scale,height=scale*5)
+
+
+#MAISIOK01
+#By adding in interval in the facet_wrap, makes a plot for each time interval
+#only included Montipora and Porites
+T0T1K01 = ggplot(subset(MAISIOK01, Genus_Code%in%c("MOSP","POSP")), aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point(size=4) + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,400))+
+  scale_shape_manual(values=0:4)+
+  facet_wrap(c("Spec_Code","Interval"),scales="free")+ 
+  theme(axis.text = element_text(size = 20))+ theme(axis.title = element_text(size = 20))+ theme(legend.text = element_text(size = 20))+ theme(legend.title = element_text(size = 26),strip.text = element_text(size = 15))+
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1K01
+ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_ByYear_MAI2.png"),plot=T0T1K01,width=8*scale,height=scale*5)
+```{r}
+############################
+#KUR
+T0T1y_KUR = ggplot(data = KUROCC010_PLIC_16to19, aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,100))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,100))+
+  scale_shape_manual(values=0:4)+
+  facet_wrap(c("Site","Interval"),scales="free")+
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1y_KUR
+ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_ByYear_KUR.png"),plot=T0T1y_KUR,width=6,height=3)
+
+############################
+#PHR
+T0T1y_PHR = ggplot(data = PHROCC016_PLIC_16to19, aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,350))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,350))+
+  scale_shape_manual(values=0:4)+
+  facet_wrap(c("Site","Interval"),scales="free")+
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1y_PHR
+ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_ByYear_PHR.png"),plot=T0T1y_PHR,width=6,height=3)
+
+
+#LIS
+T0T1y_LIS = ggplot(data = LISOCC005_PLIC_16to19, aes(x=StartingSize, y=EndingSize,color=TransitionTypeSimple,shape=TransitionTypeSimple)) + 
+  geom_point() + geom_abline(slope = 1)+
+  scale_x_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,350))+ #log transform x axis
+  scale_y_sqrt(breaks=c(10,50,100,250,500,1000,2000),limits=c(0,350))+
+  scale_shape_manual(values=0:4)+
+  facet_wrap(c("Site","Interval"),scales="free")+
+  xlab("Colony Size at Time T (cm^2)") + ylab("Colony Size at Time T+1 (cm^2)")
+T0T1y_LIS
+ggsave(filename = paste0(basepath,"Figures/TransitionTypeT0T1ByGenus_ByYear_LIS.png"),plot=T0T1y_LIS,width=6,height=3)
+```
+
+
+#Counting
+```{r}
+#Count the total number of transitions in the ENTIRE dataset that fit into the POCS, POSP, or MOSP genus category
+total_POCS <- sum(with(ColonyLevel, Genus_Code=="POCS"))
+total_POCS #331
+#total_MOSP <- sum(with(ColonyLevel, Genus_Code=="MOSP"))
+#total_MOSP #341
+#total_POSP <- sum(with(ColonyLevel, Genus_Code=="POSP"))
+#total_POSP #2014
+
+#to count the # of each genus in the first year at the Maui site
+#POCS_MAI_2014 <- sum(with(MAISIOK01, Genus_Code=="POCS" & StartingYear==2014))
+#POCS_MAI_2014 #4 in 2014
+#POCS_MAI_2015 <- sum(with(MAISIOK01, Genus_Code=="POCS" & StartingYear==2015))
+#POCS_MAI_2015 #3 in 2014
+#MOSP_MAI14 <- sum(with(MAISIOK01, Genus_Code=="MOSP" & StartingYear==2014))
+#MOSP_MAI14 #88 in 2014
+#POSP_MAI14 <- sum(with(MAISIOK01, Genus_Code=="POSP" & StartingYear==2014))
+#POSP_MAI14 #107 in 2014
+```
+
+```{R}
+#count total plic colonies from each site
+
+KUR_PLIC <- sum(with(KUROCC010_PLIC_16to19, Spec_Code == "PLIC"))
+#KUR_PLIC
+#There are 76 plic with a Transition from 2016-2019 at Lisianski
+
+PHR_PLIC <- sum(with(PHROCC016_PLIC_16to19, Spec_Code == "PLIC"))
+#PHR_PLIC
+#There are 38 plic with a Transition from 2016-2019 at Lisianski
+
+LIS_PLIC <- sum(with(LISOCC005_PLIC_16to19, Spec_Code == "PLIC"))
+#LIS_PLIC
+#There are 36 plic with a Transition from 2016-2019 at Lisianski
+```
+
+#faster way to count genera for MAISIOK01
+table(MAISIOK01$Genus_Code,useNA="always")
+#MOSP 497, POCS 14, POSP 605
+```{r}
+#count transition types 2016- 2019 only
+table(KUROCC010_PLIC_16to19$TransitionTypeSimple,useNA="always")
+table(PHROCC016_PLIC_16to19$TransitionTypeSimple,useNA="always")
+table(LISOCC005_PLIC_16to19$TransitionTypeSimple,useNA="always")
+```
+
+```{r}
+#count transition types 2013-2019 PHR vs. Lisianski
+table(PHROCC016_PLIC$TransitionTypeSimple,useNA="always")
+table(LISOCC005_PLIC$TransitionTypeSimple,useNA="always")
+```
+
+
+```{R}
+#old code, use table format (above)
+
+#Count the number of mortality events in each transition
+
+KUR_MORT <- sum(with(KUROCC010_PLIC_16to19, TransitionTypeSimple=="MORT" ))
+KUR_MORT
+#There were 44 mortality events at Kure Atoll from 2016-2019
+
+PHR_MORT <- sum(with(PHROCC016_PLIC_16to19, TransitionTypeSimple=="MORT" ))
+PHR_MORT
+##There were 10 mortality events at Pearl and Hermes Atoll from 2016-2019
+
+LIS_MORT <- sum(with(LISOCC005_PLIC_16to19, TransitionTypeSimple=="MORT" ))
+LIS_MORT
+##There were 7 mortality events at Lisianski Atoll from 2016-2019
+
+#recruitment events
+MAIrecr_1415 <- sum(with(MAISIOK01, TransitionTypeSimple=="RECR" & EndingYear==2015))
+MAIrecr_1415 #8
+MAIrecr_1516 <- sum(with(MAISIOK01, TransitionTypeSimple=="RECR" & EndingYear==2016))
+MAIrecr_1516 #2
+MAIrecr_1618 <- sum(with(MAISIOK01, TransitionTypeSimple=="RECR" & EndingYear==2018))
+MAIrecr_1618 #34
+#growth events
+MAIgro_1415 <- sum(with(MAISIOK01, TransitionTypeSimple=="RECR" & EndingYear==2015))
+MAIgro_1415 #8
+MAIgro_1516 <- sum(with(MAISIOK01, TransitionTypeSimple=="RECR" & EndingYear==2016))
+MAIgro_1516 #2
+MAIshrin_1618 <- sum(with(MAISIOK01, TransitionTypeSimple=="RECR" & EndingYear==2018))
+MAIshrin_1618 #34
+#etc. Since this code involves a lot of repetition, we need to write a loop to make our script
+#simpler and more reproducible
+
+#count the number of mortality events in each year
+sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="14-15"))
+sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="15-16"))
+sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="16-17"))
+sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="17-18"))
+```
+#Stats discussion
+
+#Kai
+Comparing species specific vital rates b/w PLIG & PLIC at KUR
+ANCOVA- test for normality, test for equal variance, random independent samples (check), relationship b/w dependent and coviarate is linear
+Dependent= growth rate
+Covariate = starting size
+
+
+#Leta & Melissa
+Comparing vital rates (growth,recruit,survival) during bleaching years vs normal years
+Repeated Measure ANOVA
+1 dependent variable w/ more than one observation, needs to be continuous: size dependent(?) growth rate
+1 independent variable categorical: bleaching transition or normal transition
+
+size dependent growth rate by transition year
+levels are pre bleaching and post bleaching
+
+https://statistics.laerd.com/statistical-guides/repeated-measures-anova-statistical-guide.php
+
+
+
+#ANCOVA 
+We will run an ANCOVA because there are 2 independent/predictor variables: 1 categorial (species) and 1 continuous variable (????). <<<What variable is this?
+Assumptions: equal variance, the data are normal, the residuals are normal, independence of covariate and treatment effect
+```{r}
+#Compare growth rates between two species
+
+#first plot the growth rates for the two species (growth/shrink only, no recruitment or mortality)
+growthshrink <- subset(ColonyLevel, TransitionTypeSimple == "GROWTH" | TransitionTypeSimple == "SHRINK")
+#View(growthshrink)
+
+
+#test for equal variance
+leveneTest(growthshrink$TransitionRate_L, growthshrink$) #<<<what variable goes here?
+#this may not run. Need to install one of these packages (google to figure out which one: ggpubr,sjstats,car,multcomp)
+
+```
+
+
+#Repeated Measures ANOVA
+Test to detect differences between related means. A one-way ANOVA for related, not indepedent groups
+No major outliers for normality
+One independent variable (categorical): interval (bleaching vs normal)
+One dependent variable (continuous): growth
+
+Will be used to investigate if there are differences in mean growth rates between bleaching, normal, or recovery years
+
+*If normality is not met, use non-parametric Friedman test
+```{r}
+
+
+```
+
+
+#Mixed Effects Logistic Regression
+Measure the relationship b/w categorical dependent variable and one or more independent variables
+Dependent variable: survival or mortality
+Indepedent variable: genus
+
+Will be used to investigate if survival rates were different between two genera
+```{r}
+#tally # of survival/mortality events for each genus
+MAISIOK02_g <- subset(MAISIOK02, Genus_Code=="POSP" | Genus_Code=="MOSP") #removed pocillopora
+table(MAISIOK02_g$Genus_Code, MAISIOK02_g$Mortality) #1 = mortality, 0=survival
+
+#subset by time interval
+unique(MAISIOK02_g$Interval) #Identify all the interval types. we will actuall ignore 15-17 and 14-16 b/c those are mistakes w/ just 1 colony each
+yr1415 <- subset(MAISIOK02_g, Interval=="14-15")
+yr1516 <- subset(MAISIOK02_g, Interval=="15-16")
+yr1617 <- subset(MAISIOK02_g, Interval=="16-17")
+yr1718 <- subset(MAISIOK02_g, Interval=="17-18")
+#comparing # of colonies to double check that my interval subsetting worked
+dim(MAISIOK02_g) #1300 rows
+dim(yr1415)
+dim(yr1516)
+dim(yr1617)
+dim(yr1718)
+391+324+266+317 #1298 rows. So my subsetting worked
+
+
+#use prop.test to compute difference in survival proportions
+#Yates' continuity correction and two-sided alternative will be used because this paper did: https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.5292
+prop.test(table(MAISIOK02_g$Genus_Code, MAISIOK02_g$Mortality), alternative = "two.sided", correct = TRUE)
+#low p value = proportions differ from each other
+#prop 1(MOSP) and prop2(POSP) show proportion of corals that died in each genus. So chance of dying is higher for POSP
+
+#need to test for every time interval
+#2014-2015
+prop.test(table(yr1415$Genus_Code,yr1415$Mortality), alternative = "two.sided", correct = TRUE)
+#analysis: POSP and MOSP differ from one another; chance of mortality is higher for POSP
+
+#2015-2016
+prop.test(table(yr1516$Genus_Code,yr1516$Mortality), alternative = "two.sided", correct = TRUE)
+#analysis: POSP and MOSP differ from one another; chance of mortality is higher for MOSP ???
+
+#2016-2017
+prop.test(table(yr1617$Genus_Code,yr1617$Mortality), alternative = "two.sided", correct = TRUE)
+#analysis: POSP and MOSP do NOT differ from one another
+
+#2017-2018
+prop.test(table(yr1617$Genus_Code,yr1617$Mortality), alternative = "two.sided", correct = TRUE)
+#analysis: POSP and MOSP do NOT differ from one another
+
+
+#Logistic regression with an individual-specific random intercept to account for repeated observations per individual
+#predict probability of mortality based on the genus
+#plot
+# surv <- 1 - MAISIOK02$Mortality
+# MAISIOK02$ln_SS <- as.numeric(MAISIOK02$ln_SS)
+# MAISIOK02$ln_SS[MAISIOK02$ln_SS == -Inf] <- NA
+# 
+# plot(jitter(surv, 0.1 ~ ln_SS), MAISIOK02)
+# ss <- seq(-3, 9, 0.1)
+# lines(ss, predict(model1, list(ln_SS = ss), type="response"), pch=8)
+
+#normal logistic regression
+model1 <- glm(Mortality ~ Genus_Code, family = "binomial", data = MAISIOK02)
+summary(model1)
+tidy(model1)
+#POCS does not predict a coral's probability of survival
+#POSP predicts a coral's prob of survival and negatively affects the survival probability
+#can't figure out why MOSP isn't showing up!
+library(effects)
+plot(allEffects(model1)) #shows that MOSP and POSP have a higher probability of higher mortality, MOSP has the highest probability
+
+#mixed-effects logistic regression w/ survival as response and random intercept (1|ColonyID)
+MAISIOK02$ColonyID <- factor(MAISIOK02$ColonyID)
+model2 <- glmer(Mortality ~ Genus_Code + (1 | ColonyID), data = MAISIOK02, family = binomial, control = glmerControl(optimizer = "bobyqa") )
+#plot_model(model2, type = "int") + theme_ggeffects
+print(model2, corr = FALSE)
+#number of observations = number of coral patches, groups 649 ColonyIds
+plot(allEffects(model2))
+
+
+#evalulate goodness of fit for each model
+anova(model1, model2, test = "Chisq")
+
+#compare regular logistic model to mixed effects logistic model to see which is the better model
+tab_model(model1, model2, p.style = "both", show.aic = T) #not working
+#compare AIC values
+model1$aic #1521.33 vs model2 AIC= 1523.330
+
+#i think it's better to use the logistic regression (model1), but I think I did the mixed-effects logistic regression incorrectly
+
+```
+
+
+To Do:
+
+
+
+
+
+
+
