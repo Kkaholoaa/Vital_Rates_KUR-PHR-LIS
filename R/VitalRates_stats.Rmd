@@ -20,13 +20,13 @@ library(car) #used for ANCOVA
 library(MASS) #used for prop test
 library(broom) #helps tidy up model outputs
 library(lme4) #used for Mixed Effects Logistic Regression
-library(sjPlot) #used to visualize mixed-effects models
+#library(sjPlot) #used to visualize mixed-effects models
 ```
 
 #Set up (change path for your computer)
 ```{r Load,}
 #load in .rdata file
-load("/Users/kaikukaholoaa/Desktop/VitalRates_Kai/data/Patch_And_Colony_Data_20210730.rdata")
+load("/Users/kaikukaholoaa/Desktop/VitalRates_Kur_PHR_LIS/data/Patch_And_Colony_Data_20210730.rdata")
 #View both tables saved in the .rdata
 View(ColonyLevel)
 View(PatchLevel)
@@ -241,7 +241,7 @@ table(LISOCC005_PLIC$TransitionTypeSimple,useNA="always")
 ```
 
 
-```{R}
+
 #old code, use table format (above)
 
 #Count the number of mortality events in each transition
@@ -280,7 +280,8 @@ sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="14-15"))
 sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="15-16"))
 sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="16-17"))
 sum(with(MAISIOK02, TransitionTypeSimple=="MORT" & Interval=="17-18"))
-```
+
+###################################################################################################
 #Stats discussion
 
 #Kai
@@ -289,23 +290,10 @@ ANCOVA- test for normality, test for equal variance, random independent samples 
 Dependent= growth rate
 Covariate = starting size
 
-
-#Leta & Melissa
-Comparing vital rates (growth,recruit,survival) during bleaching years vs normal years
-Repeated Measure ANOVA
-1 dependent variable w/ more than one observation, needs to be continuous: size dependent(?) growth rate
-1 independent variable categorical: bleaching transition or normal transition
-
-size dependent growth rate by transition year
-levels are pre bleaching and post bleaching
-
-https://statistics.laerd.com/statistical-guides/repeated-measures-anova-statistical-guide.php
-
-
-
 #ANCOVA 
 We will run an ANCOVA because there are 2 independent/predictor variables: 1 categorial (species) and 1 continuous variable (????). <<<What variable is this?
 Assumptions: equal variance, the data are normal, the residuals are normal, independence of covariate and treatment effect
+
 ```{r}
 #Compare growth rates between two species
 
@@ -335,105 +323,20 @@ Will be used to investigate if there are differences in mean growth rates betwee
 
 ```
 
+###################################################################################################
 
-#Mixed Effects Logistic Regression
-Measure the relationship b/w categorical dependent variable and one or more independent variables
-Dependent variable: survival or mortality
-Indepedent variable: genus
+#Anova Stats for Kai
 
-Will be used to investigate if survival rates were different between two genera
 ```{r}
-#tally # of survival/mortality events for each genus
-MAISIOK02_g <- subset(MAISIOK02, Genus_Code=="POSP" | Genus_Code=="MOSP") #removed pocillopora
-table(MAISIOK02_g$Genus_Code, MAISIOK02_g$Mortality) #1 = mortality, 0=survival
-
-#subset by time interval
-unique(MAISIOK02_g$Interval) #Identify all the interval types. we will actuall ignore 15-17 and 14-16 b/c those are mistakes w/ just 1 colony each
-yr1415 <- subset(MAISIOK02_g, Interval=="14-15")
-yr1516 <- subset(MAISIOK02_g, Interval=="15-16")
-yr1617 <- subset(MAISIOK02_g, Interval=="16-17")
-yr1718 <- subset(MAISIOK02_g, Interval=="17-18")
-#comparing # of colonies to double check that my interval subsetting worked
-dim(MAISIOK02_g) #1300 rows
-dim(yr1415)
-dim(yr1516)
-dim(yr1617)
-dim(yr1718)
-391+324+266+317 #1298 rows. So my subsetting worked
-
-
-#use prop.test to compute difference in survival proportions
-#Yates' continuity correction and two-sided alternative will be used because this paper did: https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.5292
-prop.test(table(MAISIOK02_g$Genus_Code, MAISIOK02_g$Mortality), alternative = "two.sided", correct = TRUE)
-#low p value = proportions differ from each other
-#prop 1(MOSP) and prop2(POSP) show proportion of corals that died in each genus. So chance of dying is higher for POSP
-
-#need to test for every time interval
-#2014-2015
-prop.test(table(yr1415$Genus_Code,yr1415$Mortality), alternative = "two.sided", correct = TRUE)
-#analysis: POSP and MOSP differ from one another; chance of mortality is higher for POSP
-
-#2015-2016
-prop.test(table(yr1516$Genus_Code,yr1516$Mortality), alternative = "two.sided", correct = TRUE)
-#analysis: POSP and MOSP differ from one another; chance of mortality is higher for MOSP ???
-
-#2016-2017
-prop.test(table(yr1617$Genus_Code,yr1617$Mortality), alternative = "two.sided", correct = TRUE)
-#analysis: POSP and MOSP do NOT differ from one another
-
-#2017-2018
-prop.test(table(yr1617$Genus_Code,yr1617$Mortality), alternative = "two.sided", correct = TRUE)
-#analysis: POSP and MOSP do NOT differ from one another
-
-
-#Logistic regression with an individual-specific random intercept to account for repeated observations per individual
-#predict probability of mortality based on the genus
-#plot
-# surv <- 1 - MAISIOK02$Mortality
-# MAISIOK02$ln_SS <- as.numeric(MAISIOK02$ln_SS)
-# MAISIOK02$ln_SS[MAISIOK02$ln_SS == -Inf] <- NA
-# 
-# plot(jitter(surv, 0.1 ~ ln_SS), MAISIOK02)
-# ss <- seq(-3, 9, 0.1)
-# lines(ss, predict(model1, list(ln_SS = ss), type="response"), pch=8)
-
-#normal logistic regression
-model1 <- glm(Mortality ~ Genus_Code, family = "binomial", data = MAISIOK02)
-summary(model1)
-tidy(model1)
-#POCS does not predict a coral's probability of survival
-#POSP predicts a coral's prob of survival and negatively affects the survival probability
-#can't figure out why MOSP isn't showing up!
-library(effects)
-plot(allEffects(model1)) #shows that MOSP and POSP have a higher probability of higher mortality, MOSP has the highest probability
-
-#mixed-effects logistic regression w/ survival as response and random intercept (1|ColonyID)
-MAISIOK02$ColonyID <- factor(MAISIOK02$ColonyID)
-model2 <- glmer(Mortality ~ Genus_Code + (1 | ColonyID), data = MAISIOK02, family = binomial, control = glmerControl(optimizer = "bobyqa") )
-#plot_model(model2, type = "int") + theme_ggeffects
-print(model2, corr = FALSE)
-#number of observations = number of coral patches, groups 649 ColonyIds
-plot(allEffects(model2))
-
-
-#evalulate goodness of fit for each model
-anova(model1, model2, test = "Chisq")
-
-#compare regular logistic model to mixed effects logistic model to see which is the better model
-tab_model(model1, model2, p.style = "both", show.aic = T) #not working
-#compare AIC values
-model1$aic #1521.33 vs model2 AIC= 1523.330
-
-#i think it's better to use the logistic regression (model1), but I think I did the mixed-effects logistic regression incorrectly
-
+install.packages(c("ggplot2", "ggpubr", "tidyverse", "broom", "AICcmodavg"))
+library(ggplot2)
+library(ggpubr)
+library(tidyverse)
+library(broom)
+library(AICcmodavg)
 ```
 
-
-To Do:
-
-
-
-
+LIS_anova <- LISOCC005_PLIC_16to19, header = TRUE, colClasses = c("factor", "factor", "factor", "numeric"))
 
 
 
